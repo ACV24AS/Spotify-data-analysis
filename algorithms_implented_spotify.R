@@ -188,3 +188,41 @@ rmse_rf <- rmse(test_data$popularity, rf_predictions)
 # Print metrics
 cat("Random Forest - R-squared:", r_squared_rf, "\n")
 cat("Random Forest - RMSE:", rmse_rf, "\n")
+
+# Step 1: Check the proportion of explicit vs. non-explicit tracks
+table(spotify_data$explicit)
+
+# Step 2: Compare audio features between explicit and non-explicit tracks
+library(ggplot2)
+
+# Define the audio features to compare
+audio_features <- c("danceability", "energy", "loudness", "speechiness", 
+                    "acousticness", "instrumentalness", "liveness", "valence", "tempo")
+
+# Reshape data for visualization
+spotify_melt <- spotify_data %>%
+  select(explicit, all_of(audio_features)) %>%
+  pivot_longer(cols = -explicit, names_to = "Feature", values_to = "Value")
+
+# Boxplot for each feature
+ggplot(spotify_melt, aes(x = explicit, y = Value, fill = explicit)) +
+  geom_boxplot(outlier.color = "red", outlier.size = 2) +
+  facet_wrap(~ Feature, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(
+    title = "Comparison of Audio Features: Explicit vs. Non-Explicit Tracks",
+    x = "Explicit",
+    y = "Feature Value"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Step 3: Statistical test to check differences
+# Perform t-tests for each feature
+t_test_results <- spotify_data %>%
+  summarise(across(
+    all_of(audio_features),
+    ~ t.test(. ~ explicit, data = spotify_data)$p.value,
+    .names = "p_{col}"
+  ))
+
+print(t_test_results)
