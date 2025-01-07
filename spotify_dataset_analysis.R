@@ -1,4 +1,6 @@
 # Load required libraries
+install.packages("ggcorrplot")
+library(ggcorrplot)
 library(tidyverse)
 library(VIM)
 
@@ -105,3 +107,84 @@ summary(spotify_data)
 correlations <- cor(spotify_data[, sapply(spotify_data, is.numeric)]) # Numeric columns only
 print(correlations)
 
+library(ggcorrplot)
+
+# Compute correlation matrix
+correlation_matrix <- cor(spotify_data[, sapply(spotify_data, is.numeric)])
+
+# Plot heatmap
+ggcorrplot(correlation_matrix, 
+           method = "circle", 
+           type = "lower", 
+           lab = TRUE, 
+           lab_size = 3, 
+           title = "Correlation Heatmap of Spotify Features")
+
+# Linear Regression Model
+# Select only numeric columns and remove NAs
+spotify_numeric <- spotify_data[, sapply(spotify_data, is.numeric)]
+spotify_numeric <- na.omit(spotify_numeric)  # Remove rows with NA values
+install.packages("caret")
+library(caret)
+set.seed(42)  # For reproducibility
+
+# Create training and testing sets
+train_index <- createDataPartition(spotify_numeric$popularity, p = 0.8, list = FALSE)
+train_data <- spotify_numeric[train_index, ]
+test_data <- spotify_numeric[-train_index, ]
+# Train Linear Regression Model
+lm_model <- lm(popularity ~ ., data = train_data)
+
+# View model summary (coefficients, p-values, R^2)
+summary(lm_model)
+# Predict on test data
+predictions <- predict(lm_model, newdata = test_data)
+
+# Evaluate the model
+library(Metrics)
+
+# Calculate R-squared
+r_squared <- cor(test_data$popularity, predictions)^2
+
+# Calculate RMSE
+rmse_value <- rmse(test_data$popularity, predictions)
+
+# Print evaluation metrics
+cat("R-squared:", r_squared, "\n")
+cat("RMSE:", rmse_value, "\n")
+
+
+install.packages("randomForest")
+library(randomForest)
+# Fit the Random Forest Model
+set.seed(42)  # For reproducibility
+rf_model <- randomForest(popularity ~ ., data = train_data, ntree = 500, importance = TRUE)
+
+# View the model summary
+print(rf_model)
+# Get feature importance
+importance_rf <- importance(rf_model)
+importance_df <- data.frame(Feature = rownames(importance_rf), Importance = importance_rf[, "%IncMSE"])
+
+# Sort by importance
+importance_df <- importance_df[order(-importance_df$Importance), ]
+print(importance_df)
+# Bar Plot of Feature Importance
+library(ggplot2)
+ggplot(importance_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "forestgreen") +
+  coord_flip() +
+  labs(title = "Feature Importance (Random Forest)", x = "Features", y = "Importance")
+
+
+# Predict on the test set
+rf_predictions <- predict(rf_model, newdata = test_data)
+
+# Evaluate Random Forest
+library(Metrics)
+r_squared_rf <- cor(test_data$popularity, rf_predictions)^2
+rmse_rf <- rmse(test_data$popularity, rf_predictions)
+
+# Print metrics
+cat("Random Forest - R-squared:", r_squared_rf, "\n")
+cat("Random Forest - RMSE:", rmse_rf, "\n")
